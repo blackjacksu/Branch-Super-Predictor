@@ -1,8 +1,8 @@
 // my_predictor.h
 // This file contains a sample my_predictor class.
-// It is a simple tage predictor.
-// Authors: 
-// Institute: Texas A&M University
+// It is a simple 32,768-entry gshare with a history length of 15.
+// Note that this predictor doesn't use the whole 32 kilobytes available
+// for the CBP-2 contest; it is just an example.
 
 class my_update : public branch_update {
 public:
