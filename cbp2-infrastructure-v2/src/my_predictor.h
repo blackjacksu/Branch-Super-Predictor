@@ -51,5 +51,4 @@ public:
 	}
 };
 
-
-//Hello world
+//Hallo Welt！ Haiming
