@@ -81,21 +81,19 @@ public:
   branch_update u;
   branch_info bi;
 
-//  class lentry			//our predictor entry
-
+  //  class lentry			//our predictor entry
 
   class bentry			// TAGE bimodal table entry  
   {                     // base predictor
   public:
     int8_t hyst;
     int8_t pred;
-      bentry ()
+    bentry ()
     {
       pred = 0;
       hyst = 1;
     }
-  };//
-
+  };
 
   class gentry			// TAGE global table entry
   {                     // other banks
@@ -103,7 +101,7 @@ public:
     int8_t ctr;
     uint16_t tag;
     int8_t u;
-      gentry ()
+    gentry ()
     {
 
       ctr = 0;
@@ -111,20 +109,24 @@ public:
       u = 0;
     }
   };
+  
+  // "Use alternate prediction on newly allocated":  a 4-bit counter  to determine whether the newly allocated entries should be considered as  valid or not for delivering  the prediction
+  int USE_ALT_ON_NA;		
 
-
-  int USE_ALT_ON_NA;		// "Use alternate prediction on newly allocated":  a 4-bit counter  to determine whether the newly allocated entries should be considered as  valid or not for delivering  the prediction
-
-  int TICK, LOGTICK;		//control counter for the smooth resetting of useful counters
-
-  int phist;			// use a path history as on  the OGEHL predictor
-//for managing global history  
+  //control counter for the smooth resetting of useful counters
+  int TICK, LOGTICK;		
+  
+  // use a path history as on  the OGEHL predictor
+  int phist;			
+  
+  //for managing global history  
   uint8_t *GHIST;
   uint8_t *ghist;
   int ptghist;
+  // path history including kernel activity
+  int phistos;			
 
-  int phistos;			// path history including kernel activity
-// for managing global history including kernel activity
+  // for managing global history including kernel activity
   uint8_t *GHISTOS;
   uint8_t *ghistos;
   int ptghistos;
@@ -180,18 +182,13 @@ public:
     m[1] = MINHIST;
     m[NHIST] = MAXHIST;
     for (int i = 2; i <= NHIST; i++)
-      {
-	m[i] =
-	  (int) (((double) MINHIST *
-		  pow ((double) (MAXHIST) / (double) MINHIST,
-		       (double) (i - 1) / (double) ((NHIST - 1)))) + 0.5);
-      }
+    {
+	    m[i] = (int) (((double) MINHIST *
+		    pow ((double) (MAXHIST) / (double) MINHIST,
+		    (double) (i - 1) / (double) ((NHIST - 1)))) + 0.5);
+    }
 
-
-
-
-
-//widths of the partial tags
+    //widths of the partial tags
     TB[1] = TBITS;
     TB[2] = TBITS;
     TB[3] = TBITS + 1;
@@ -205,7 +202,7 @@ public:
     TB[11] = TBITS + 7;
     TB[12] = TBITS + 8;
 
-// log2 of number entries in the tagged components
+    // log2 of number entries in the tagged components
     for (int i = 1; i <= 2; i++)
       logg[i] = LOGG - 1;
     for (int i = 3; i <= 6; i++)
@@ -215,28 +212,27 @@ public:
     for (int i = 11; i <= 12; i++)
       logg[i] = LOGG - 2;
 
-//initialisation of index and tag computation functions
+    //initialisation of index and tag computation functions
     for (int i = 1; i <= NHIST; i++)
-      {
-	ch_i[i].init (m[i], (logg[i]));
-	ch_t[0][i].init (ch_i[i].OLENGTH, TB[i]);
-	ch_t[1][i].init (ch_i[i].OLENGTH, TB[i] - 1);
-      }
+    {
+	    ch_i[i].init (m[i], (logg[i]));
+	    ch_t[0][i].init (ch_i[i].OLENGTH, TB[i]);
+	    ch_t[1][i].init (ch_i[i].OLENGTH, TB[i] - 1);
+    }
     for (int i = 1; i <= NHIST; i++)
-      {
-	ch_ios[i].init (m[i], (logg[i]));
-	ch_tos[0][i].init (ch_i[i].OLENGTH, TB[i]);
-	ch_tos[1][i].init (ch_i[i].OLENGTH, TB[i] - 1);
-      }
-//allocation of the loop predictor table
-//    ltable = new lentry[1 << LOGL];
-//allocation of the predictor tables
+    {
+	    ch_ios[i].init (m[i], (logg[i]));
+	    ch_tos[0][i].init (ch_i[i].OLENGTH, TB[i]);
+	    ch_tos[1][i].init (ch_i[i].OLENGTH, TB[i] - 1);
+    }
+    //allocation of the loop predictor table
+    //    ltable = new lentry[1 << LOGL];
+    //allocation of the predictor tables
     btable = new bentry[1 << LOGB];
     for (int i = 1; i <= NHIST; i++)
-      {
-	gtable[i] = new gentry[1 << (logg[i])];
-      }
-
+    {
+	    gtable[i] = new gentry[1 << (logg[i])];
+    }
   }
 
 
@@ -250,12 +246,11 @@ public:
   // index function for the  4-way associative loop predictor
   int lindex (address_t pc)
   {
-
     return ((pc & ((1 << (LOGL - 2)) - 1)) << 2);
-
   }
-// the index functions for the tagged tables uses path history as in the OGEHL predictor
-//F serves to mix path history
+
+  // the index functions for the tagged tables uses path history as in the OGEHL predictor
+  //F serves to mix path history
   int F (int A, int size, int bank)
   {
     int A1, A2;
@@ -269,7 +264,8 @@ public:
     A = ((A << bank) & ((1 << logg[bank]) - 1)) + (A >> (logg[bank] - bank));
     return (A);
   }
-// gindex computes a full hash of pc, ghist and phist
+
+  // gindex computes a full hash of pc, ghist and phist
   int gindex (address_t pc, int bank)
   {
     int index;
@@ -288,7 +284,8 @@ public:
 
     return (tag & ((1 << TB[bank]) - 1));
   }
-//index computation for kernel branchs 
+
+  //index computation for kernel branchs 
   int gindexos (address_t pc, int bank)
   {
     int index;
@@ -313,41 +310,43 @@ public:
   void ctrupdate (int8_t & ctr, bool taken, int nbits)
   {
     if (taken)
-      {
-	if (ctr < ((1 << (nbits - 1)) - 1))
-	  ctr++;
-      }
+    {
+	    if (ctr < ((1 << (nbits - 1)) - 1))
+	      ctr++;
+    }
     else
-      {
-	if (ctr > -(1 << (nbits - 1)))
-	  ctr--;
-      }
+    {
+	    if (ctr > -(1 << (nbits - 1)))
+	      ctr--;
+    }
   }
   bool getbim (address_t pc)
   {
-
     return (btable[BI].pred > 0);
-
   }
-// update  the bimodal predictor: a hysteresis bit is shared among 4 prediction bits
+
+  // update  the bimodal predictor: a hysteresis bit is shared among 4 prediction bits
   void baseupdate (address_t pc, bool Taken)
   {
     int inter = (btable[BI].pred << 1) + btable[BI >> HYSTSHIFT].hyst;
     if (Taken)
-      {
-	if (inter < 3)
-	  inter += 1;
-      }
+    {
+	    if (inter < 3)
+	      inter += 1;
+    }
     else if (inter > 0)
+    {
       inter--;
+    }
+
     btable[BI].pred = inter >> 1;
     btable[BI >> HYSTSHIFT].hyst = (inter & 1);
   }
 
-//our predictor and its update function 
+  //our predictor and its update function 
  
 
-//just a simple pseudo random number generator: a 2-bit counter, used to avoid ping-pong phenomenom on tagged entry allocations
+  //just a simple pseudo random number generator: a 2-bit counter, used to avoid ping-pong phenomenom on tagged entry allocations
 
   int MYRANDOM ()
   {
@@ -355,16 +354,18 @@ public:
     return (Seed & 3);
   };
 
-// shifting the global history:  we manage the history in a big table in order to reduce simulation time
+  // shifting the global history:  we manage the history in a big table in order to reduce simulation time
   void updateghist (uint8_t * &h, bool dir, uint8_t * tab, int &PT)
   {
     if (PT == 0)
+    {
+	    for (int i = 0; i < MAXHIST; i++)
       {
-	for (int i = 0; i < MAXHIST; i++)
-	  tab[BUFFERHIST - MAXHIST + i] = tab[i];
-	PT = BUFFERHIST - MAXHIST;
-	h = &tab[PT];
+	      tab[BUFFERHIST - MAXHIST + i] = tab[i];
       }
+	    PT = BUFFERHIST - MAXHIST;
+	    h = &tab[PT];
+    }
     PT--;
     h--;
     h[0] = (dir) ? 1 : 0;
@@ -375,82 +376,82 @@ public:
   {
     bi = b;
 
-
     int pc = b.address;
 
     bool KERNELMODE = ((pc & 0xc0000000) == 0xc0000000);
 
-
-
     if (b.br_flags & BR_CONDITIONAL)
+    {
+      // TAGE prediction
+
+      // computes the table addresses and the partial tags
+	    if (!KERNELMODE)
       {
-
-// TAGE prediction
-
-// computes the table addresses and the partial tags
-	if (!KERNELMODE)
-	  for (int i = 1; i <= NHIST; i++)
-	    {
-	      GI[i] = gindex (pc, i);
-	      GTAG[i] = gtag (pc, i);
-	    }
-	else
-	  for (int i = 1; i <= NHIST; i++)
-	    {
-	      GI[i] = gindexos (pc, i);
-	      GTAG[i] = gtagos (pc, i);
-	    }
-	BI = pc & ((1 << LOGB) - 1);
-
-	HitBank = 0;
-	AltBank = 0;
-//Look for the bank with longest matching history
-	for (int i = NHIST; i > 0; i--)
-	  {
-	    if (gtable[i][GI[i]].tag == GTAG[i])
+        for (int i = 1; i <= NHIST; i++)
 	      {
-		HitBank = i;
-		break;
+	        GI[i] = gindex (pc, i);
+	        GTAG[i] = gtag (pc, i);
 	      }
-	  }
-//Look for the alternate bank
-	for (int i = HitBank - 1; i > 0; i--)
-	  {
-	    if (gtable[i][GI[i]].tag == GTAG[i])
-	      if ((USE_ALT_ON_NA < 0)
-		  || (abs (2 * gtable[i][GI[i]].ctr + 1) > 1))
-		{
-		  AltBank = i;
-		  break;
-		}
-	  }
-//computes the prediction and the alternate prediction
-	if (HitBank > 0)
-	  {
-	    if (AltBank > 0)
-	      alttaken = (gtable[AltBank][GI[AltBank]].ctr >= 0);
-	    else
-	      alttaken = getbim (pc);
-//if the entry is recognized as a newly allocated entry and 
-//USE_ALT_ON_NA is positive  use the alternate prediction
-	    if ((USE_ALT_ON_NA < 0)
-		|| (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) > 1))
-	      tage_pred = (gtable[HitBank][GI[HitBank]].ctr >= 0);
-	    else
-	      tage_pred = alttaken;
-	  }
-	else
-	  {
-	    alttaken = getbim (pc);
-	    tage_pred = alttaken;
-
-	  }
-	//end TAGE prediction
-
-	//pred_taken = ((WITHLOOP >= 0) && (LVALID)) ? predloop : tage_pred;
-  pred_taken = tage_pred;
-
       }
+	    else
+      {
+        for (int i = 1; i <= NHIST; i++)
+	      {
+	        GI[i] = gindexos (pc, i);
+	        GTAG[i] = gtagos (pc, i);
+	      }
+      }
+	
+	    BI = pc & ((1 << LOGB) - 1);
+
+	    HitBank = 0;
+	    AltBank = 0;
+      //Look for the bank with longest matching history
+	    for (int i = NHIST; i > 0; i--)
+	    {
+	      if (gtable[i][GI[i]].tag == GTAG[i])
+	      {
+	        HitBank = i;
+	        break;
+	      }
+	    }
+      //Look for the alternate bank
+	    for (int i = HitBank - 1; i > 0; i--)
+	    {
+	      if (gtable[i][GI[i]].tag == GTAG[i])
+	        if ((USE_ALT_ON_NA < 0)
+	          || (abs (2 * gtable[i][GI[i]].ctr + 1) > 1))
+	        {
+	          AltBank = i;
+	          break;
+	        }
+	    }
+      //computes the prediction and the alternate prediction
+	    if (HitBank > 0)
+	    {
+	      if (AltBank > 0)
+	        alttaken = (gtable[AltBank][GI[AltBank]].ctr >= 0);
+	      else
+	        alttaken = getbim (pc);
+      //if the entry is recognized as a newly allocated entry and 
+      //USE_ALT_ON_NA is positive  use the alternate prediction
+	      if ((USE_ALT_ON_NA < 0)
+	        || (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) > 1))
+	        tage_pred = (gtable[HitBank][GI[HitBank]].ctr >= 0);
+	      else
+	        tage_pred = alttaken;
+	    }
+	    else
+	    {
+	      alttaken = getbim (pc);
+	      tage_pred = alttaken;
+	    }
+	    //end TAGE prediction
+
+	    //pred_taken = ((WITHLOOP >= 0) && (LVALID)) ? predloop : tage_pred;
+      pred_taken = tage_pred;
+
+    }
     u.direction_prediction (pred_taken);
     u.target_prediction (0);
     return &u;
@@ -462,140 +463,125 @@ public:
     int NRAND = MYRANDOM ();
     address_t pc = bi.address;
     if (bi.br_flags & BR_CONDITIONAL)
+    {
+      // update our predictor here
+      // TAGE UPDATE  
+	    // try to allocate a  new entries only if prediction was wrong
+	    bool ALLOC = ((tage_pred != taken) & (HitBank < NHIST));
+	    if (HitBank > 0)
+	    {
+        // Manage the selection between longest matching and alternate matching
+        // for "pseudo"-newly allocated longest matching entry
+	      bool LongestMatchPred = (gtable[HitBank][GI[HitBank]].ctr >= 0);
+	      bool PseudoNewAlloc =
+	        (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) <= 1);
+        // an entry is considered as newly allocated if its prediction counter is weak
+	      if (PseudoNewAlloc)
+	      {
+	    	  if (LongestMatchPred == taken)
+	    	    ALLOC = false;
+          // if it was delivering the correct prediction, no need to allocate a new entry
+          //even if the overall prediction was false
+
+	    	  if (LongestMatchPred != alttaken)
+	    	  {
+	    	    if (alttaken == taken)
+	    	    {
+	    		    if (USE_ALT_ON_NA < 7)
+	    		      USE_ALT_ON_NA++;
+	    	    }
+	    	    else if (USE_ALT_ON_NA > -8)
+	    	      USE_ALT_ON_NA--;
+	    	  }
+
+	    	  if (USE_ALT_ON_NA >= 0)
+	    	    tage_pred = LongestMatchPred;
+	      }
+	    }
+
+	    if (ALLOC)
+	    {
+        // is there some "unuseful" entry to allocate
+	      int8_t min = 1;
+	      for (int i = NHIST; i > HitBank; i--)
+          if (gtable[i][GI[i]].u < min)
+	    	    min = gtable[i][GI[i]].u;
+
+        // we allocate an entry with a longer history
+        //to  avoid ping-pong, we do not choose systematically the next entry, but among the 3  next   entries
+	      int Y = NRAND & ((1 << (NHIST - HitBank - 1)) - 1);
+	      int X = HitBank + 1;
+	      if (Y & 1)
+	      {
+	    	  X++;
+	    	  if (Y & 2)
+	    	    X++;
+	      }
+        //NO ENTRY AVAILABLE:  ENFORCES ONE TO BE AVAILABLE 
+	      if (min > 0)
+	        gtable[X][GI[X]].u = 0;
+
+        //Allocate only  one entry
+
+	      for (int i = X; i <= NHIST; i += 1)
+        {
+          if ((gtable[i][GI[i]].u == 0))
+	    	  {
+	    	    gtable[i][GI[i]].tag = GTAG[i];
+	    	    gtable[i][GI[i]].ctr = (taken) ? 0 : -1;
+	    	    gtable[i][GI[i]].u = 0;
+	    	    break;
+	    	  }
+        }
+	    }
+      //periodic reset of u: reset is not complete but bit by bit
+	    TICK++;
+	    if ((TICK & ((1 << LOGTICK) - 1)) == 0)
       {
-
-
-// update our predictor here
-
-
-// TAGE UPDATE  
-	// try to allocate a  new entries only if prediction was wrong
-	bool ALLOC = ((tage_pred != taken) & (HitBank < NHIST));
-	if (HitBank > 0)
-	  {
-// Manage the selection between longest matching and alternate matching
-// for "pseudo"-newly allocated longest matching entry
-	    bool LongestMatchPred = (gtable[HitBank][GI[HitBank]].ctr >= 0);
-	    bool PseudoNewAlloc =
-	      (abs (2 * gtable[HitBank][GI[HitBank]].ctr + 1) <= 1);
-// an entry is considered as newly allocated if its prediction counter is weak
-	    if (PseudoNewAlloc)
-	      {
-		if (LongestMatchPred == taken)
-		  ALLOC = false;
-// if it was delivering the correct prediction, no need to allocate a new entry
-//even if the overall prediction was false
-
-		if (LongestMatchPred != alttaken)
-		  {
-		    if (alttaken == taken)
-		      {
-
-			if (USE_ALT_ON_NA < 7)
-			  USE_ALT_ON_NA++;
-		      }
-
-		    else if (USE_ALT_ON_NA > -8)
-		      USE_ALT_ON_NA--;
-
-		  }
-		if (USE_ALT_ON_NA >= 0)
-		  tage_pred = LongestMatchPred;
-
-	      }
-
-	  }
-
-	if (ALLOC)
-	  {
-// is there some "unuseful" entry to allocate
-	    int8_t min = 1;
-	    for (int i = NHIST; i > HitBank; i--)
-	      if (gtable[i][GI[i]].u < min)
-		min = gtable[i][GI[i]].u;
-
-// we allocate an entry with a longer history
-//to  avoid ping-pong, we do not choose systematically the next entry, but among the 3 next entries
-	    int Y = NRAND & ((1 << (NHIST - HitBank - 1)) - 1);
-	    int X = HitBank + 1;
-	    if (Y & 1)
-	      {
-		X++;
-		if (Y & 2)
-		  X++;
-	      }
-//NO ENTRY AVAILABLE:  ENFORCES ONE TO BE AVAILABLE 
-	    if (min > 0)
-	      gtable[X][GI[X]].u = 0;
-
-
-//Allocate only  one entry
-
-	    for (int i = X; i <= NHIST; i += 1)
-
-	      if ((gtable[i][GI[i]].u == 0))
-		{
-		  gtable[i][GI[i]].tag = GTAG[i];
-		  gtable[i][GI[i]].ctr = (taken) ? 0 : -1;
-		  gtable[i][GI[i]].u = 0;
-		  break;
-
-		}
-	  }
-//periodic reset of u: reset is not complete but bit by bit
-	TICK++;
-	if ((TICK & ((1 << LOGTICK) - 1)) == 0)
-// reset least significant bit
-// most significant bit becomes least significant bit
-	  for (int i = 1; i <= NHIST; i++)
-	    for (int j = 0; j < (1 << logg[i]); j++)
-	      gtable[i][j].u = gtable[i][j].u >> 1;
-
-	if (HitBank > 0)
-	  {
-	    ctrupdate (gtable[HitBank][GI[HitBank]].ctr, taken, CWIDTH);
-//if the provider entry is not certified to be useful also update the alternate prediction
-	    if (gtable[HitBank][GI[HitBank]].u == 0)
-	      {
-		if (AltBank > 0)
-		  ctrupdate (gtable[AltBank][GI[AltBank]].ctr, taken, CWIDTH);
-		if (AltBank == 0)
-		  baseupdate (pc, taken);
-	      }
-	  }
-	else
-	  baseupdate (pc, taken);
-
-// update the u counter
-	if (tage_pred != alttaken)
-	  {
-	    if (tage_pred == taken)
-	      {
-		if (gtable[HitBank][GI[HitBank]].u < 3)
-		  gtable[HitBank][GI[HitBank]].u++;
-	      }
-	    else
-	      {
-		if (USE_ALT_ON_NA < 0)
-		  if (gtable[HitBank][GI[HitBank]].u > 0)
-		    gtable[HitBank][GI[HitBank]].u--;
-	      }
-
-
-	  }
-
-
-
-	//END PREDICTOR UPDATE
-
+        // reset least significant bit
+        // most significant bit becomes least significant bit
+	      for (int i = 1; i <= NHIST; i++)
+	        for (int j = 0; j < (1 << logg[i]); j++)
+	          gtable[i][j].u = gtable[i][j].u >> 1;
       }
 
+	    if (HitBank > 0)
+	    {
+	      ctrupdate (gtable[HitBank][GI[HitBank]].ctr, taken, CWIDTH);
+        //if the provider entry is not certified to be useful also update the alternate prediction
+	      if (gtable[HitBank][GI[HitBank]].u == 0)
+	      {
+	    	  if (AltBank > 0)
+	    	    ctrupdate (gtable[AltBank][GI[AltBank]].ctr, taken, CWIDTH);
+	    	  if (AltBank == 0)
+	    	    baseupdate (pc, taken);
+	      }
+	    }
+	    else
+	      baseupdate (pc, taken);
 
+      // update the u counter
+	    if (tage_pred != alttaken)
+	    {
+	      if (tage_pred == taken)
+	      {
+	        if (gtable[HitBank][GI[HitBank]].u < 3)
+	          gtable[HitBank][GI[HitBank]].u++;
+	      }
+	      else
+	      {
+	        if (USE_ALT_ON_NA < 0)
+	          if (gtable[HitBank][GI[HitBank]].u > 0)
+	            gtable[HitBank][GI[HitBank]].u--;
+	      }
+	    }
+	  
+      //END PREDICTOR UPDATE
+    }
 
+    //  UPDATE HISTORIES  
 
-//  UPDATE HISTORIES  
-
-//check user and kernel mode to detect transition:
+    //check user and kernel mode to detect transition:
 
     bool KERNELMODE = ((pc & 0xc0000000) == 0xc0000000);
 
@@ -603,35 +589,32 @@ public:
     bool PATHBIT = (bi.address & 1);
 
     if (!KERNELMODE)
-      {
-//update user history
-	updateghist (ghist, TAKEN, GHIST, ptghist);
-	phist = (phist << 1) + PATHBIT;
+    {
+      //update user history
+	    updateghist (ghist, TAKEN, GHIST, ptghist);
+	    phist = (phist << 1) + PATHBIT;
 
-	phist = (phist & ((1 << 16) - 1));
-//prepare next index and tag computations for user branchs 
-	for (int i = 1; i <= NHIST; i++)
-	  {
-	    ch_i[i].update (ghist);
-	    ch_t[0][i].update (ghist);
-	    ch_t[1][i].update (ghist);
-	  }
-      }
+	    phist = (phist & ((1 << 16) - 1));
+      //prepare next index and tag computations for user branchs 
+	    for (int i = 1; i <= NHIST; i++)
+	    {
+	      ch_i[i].update (ghist);
+	      ch_t[0][i].update (ghist);
+	      ch_t[1][i].update (ghist);
+	    }
+    }
 
-// always update kernel history
+    // always update kernel history
     updateghist (ghistos, TAKEN, GHISTOS, ptghistos);
     phistos = (phistos << 1) + PATHBIT;
     phistos = (phistos & ((1 << 16) - 1));
-//prepare next index and tag computations for  kernel branchs
+    //prepare next index and tag computations for  kernel branchs
     for (int i = 1; i <= NHIST; i++)
-      {
-	ch_ios[i].update (ghistos);
-	ch_tos[0][i].update (ghistos);
-	ch_tos[1][i].update (ghistos);
-      }
-//END UPDATE HISTORIES
-
-
+    {
+	    ch_ios[i].update (ghistos);
+	    ch_tos[0][i].update (ghistos);
+	    ch_tos[1][i].update (ghistos);
+    }
+    //END UPDATE HISTORIES
   }
-
 };
