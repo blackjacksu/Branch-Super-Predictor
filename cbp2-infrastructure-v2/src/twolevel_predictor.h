@@ -34,7 +34,7 @@ class pattern_history_table {
 
         bool get_prediction(unsigned long long pht_idx, unsigned long long entry_idx)
         {
-            return two_bit_ctr[pht_idx][entry_idx] >= 2;
+            return two_bit_ctr[pht_idx][entry_idx] >= weak_taken;
         }
 
         void update_counter_taken(unsigned long long pht_idx, unsigned long long entry_idx)
