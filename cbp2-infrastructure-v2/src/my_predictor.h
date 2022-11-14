@@ -75,7 +75,7 @@ public:
 };
 
 
-class my_predictor : public branch_predictor
+class TAGE : public branch_predictor
 {
 public:
 	branch_update u;
@@ -148,7 +148,7 @@ public:
 	int HitBank;			// longest matching bank
 	int AltBank;			// alternate matching bank	
 	//bool predloop;		// our predictor parameter{}	
-	my_predictor (void)
+	TAGE (void)
 	{
 		USE_ALT_ON_NA = 0;
 		Seed = 0;
@@ -396,6 +396,7 @@ public:
 
 			HitBank = 0;
 			AltBank = 0;
+			
 			//Look for the bank with longest matching history
 			for (int i = NHIST; i > 0; i--)
 			{

@@ -95,6 +95,8 @@ class twolevel_predictor : public branch_predictor
     public:
     	branch_update u;
 	    branch_info bi;
+        unsigned int BH;
+        unsigned int BA;
 
         twolevel_predictor()
         {
@@ -139,4 +141,14 @@ class twolevel_predictor : public branch_predictor
                 }
 		    }
         }
+        unsigned int Get_Hist () {
+                BH = bhsr_k_idx;
+                return BH;
+            };
+
+        unsigned int Get_Branch (){
+                BA = br_addr_j_idx;
+                return BA;
+        };
+
 };
