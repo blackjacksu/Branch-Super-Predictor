@@ -26,7 +26,7 @@ class Vector_Mapping_Table{
 
     void update_VMT(unsigned long long bindex, unsigned long long cindex, bool taken){
             int pred = VMT[bindex][cindex];
-
+            
             if (taken){
                 if(pred == CtrMax){
                     VMT[bindex][cindex] = CtrMax;
@@ -52,6 +52,8 @@ class selector{
         class Vector_Mapping_Table vmt;
         TAGE *tage_bp;
         twolevel_predictor *twolevel_bp;
+        unsigned long long bindex;
+        unsigned int cindex;
 
     public:
 
@@ -61,6 +63,7 @@ class selector{
         {
             tage_bp = new TAGE();
 	        twolevel_bp = new twolevel_predictor();
+            bindex = ((twolevel_bp->Get_Hist())<<BAB)+twolevel_bp->Get_Branch();
         }
 
         ~selector()
@@ -68,9 +71,6 @@ class selector{
             delete tage_bp;
             delete twolevel_bp;
         }
-        
-        unsigned long long bindex = ((twolevel_bp->Get_Hist())<<BAB)+twolevel_bp->Get_Branch();
-        unsigned int cindex;
 
         branch_update *predict(branch_info &b)
         {
