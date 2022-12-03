@@ -2,8 +2,8 @@
 #include "twolevel_predictor.h"
 
 #define Components 2 //Branch Predictor Components
-#define BHB 8       //Branch History Bits
-#define BAB 6       //Branch Address Bits
+#define BHB 6
+#define BAB 4
 #define Bindex 1<<(BHB+BAB) // VMT Branch index
 #define Cindex 1<<Components // VMT Components index
 #define Ctrbits 2 //Counter bits
@@ -52,8 +52,8 @@ class selector{
         class Vector_Mapping_Table vmt;
         TAGE *tage_bp;
         twolevel_predictor *twolevel_bp;
-        unsigned long long bindex;
-        unsigned int cindex;
+        unsigned long long bindex,BHR;
+        unsigned int cindex,PC;
 
     public:
 
@@ -63,7 +63,6 @@ class selector{
         {
             tage_bp = new TAGE();
 	        twolevel_bp = new twolevel_predictor();
-            bindex = ((twolevel_bp->Get_Hist())<<BAB)+twolevel_bp->Get_Branch();
         }
 
         ~selector()
@@ -76,6 +75,9 @@ class selector{
         {
             bool bx = tage_bp->predict(b)->direction_prediction();
             bool cx = twolevel_bp->predict(b)->direction_prediction();
+            BHR = ((twolevel_bp->Get_Hist())&((1<<BHB)-1))<<BAB;
+            PC = (twolevel_bp->Get_Branch())&((1<<BAB)-1);
+            bindex = BHR + PC;
             cindex = (bx<<(Components-1))+cx;
             u.direction_prediction(vmt.selection(bindex,cindex));
             u.target_prediction (0);
