@@ -6,7 +6,7 @@
 #define BAB 4 // Branch Address Bits
 #define Bindex 1<<(BHB+BAB) // VMT Branch index
 #define Cindex 1<<Components // VMT Components index
-#define Ctrbits 2 //Counter bits
+#define Ctrbits 3 //Counter bits 3 bits is better
 #define CtrMax (1<<Ctrbits)-1
 #define CtrMin 0
 
