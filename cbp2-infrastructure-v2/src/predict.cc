@@ -12,7 +12,7 @@
 #include "branch.h"
 #include "trace.h"
 #include "predictor.h"
-#include "selector.h"
+#include "my_predictor.h"
 
 int main (int argc, char *argv[]) {
 
