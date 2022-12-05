@@ -10,13 +10,13 @@ Code has been largely inspired	by the tagged PPM predictor simulator from Pierre
 
 
 //a limit predictor for 256Kbits: no AHEAD pipelining, 13 components
-#define NHIST 12		//12 tagged components
+#define NHIST 18		//12 tagged components                               // 要改
 #define LOGB 14			// log of the number of entries in the base bimodal predictor
 #define HYSTSHIFT 2		// sharing an hysteris bit between 4 bimodal predictor entries
 #define LOGG (LOGB-3)		// base 2 logarithm of number of entries	on each tagged component
 #define TBITS 7			// minimum tag width (shortest history length table)
 #define MINHIST 4		// shortest history length
-#define MAXHIST 640		// longest history lngth
+#define MAXHIST 1280		// longest history lngth
 
 #define LOGL 8			//256 entries loop predictor
 #define WIDTHNBITERLOOP 14
@@ -193,16 +193,26 @@ public:
 		TB[10] = TBITS + 6;
 		TB[11] = TBITS + 7;
 		TB[12] = TBITS + 8;
+    	TB[13] = TBITS + 8;
+    	TB[14] = TBITS + 9;
+    	TB[15] = TBITS + 9;
+    	TB[16] = TBITS + 10;
+    	TB[17] = TBITS + 10;
+    	TB[18] = TBITS + 11;
 
 		// log2 of number entries in the tagged components
 		for (int i = 1; i <= 2; i++)
 			logg[i] = LOGG - 1;
-		for (int i = 3; i <= 6; i++)
+		for (int i = 3; i <= 9; i++)
 			logg[i] = LOGG;
-		for (int i = 7; i <= 10; i++)
+		for (int i = 10; i <= 12; i++)
 			logg[i] = LOGG - 1;
-		for (int i = 11; i <= 12; i++)
-			logg[i] = LOGG - 2;
+		for (int i = 13; i <= 14; i++)
+			logg[i] = LOGG - 1;
+ 		for (int i = 14; i <=16 ; i++)
+			logg[i] = LOGG;
+ 		for (int i = 17; i <=18 ; i++)
+			logg[i] = LOGG -2;
 
 		//initialisation of index and tag computation functions
 		for (int i = 1; i <= NHIST; i++)
@@ -770,7 +780,7 @@ class twolevel_predictor : public branch_predictor
             };
 
         unsigned int Get_Branch (){
-                BA = br_addr_j_idx;
+                BA = bi.address & ((1 << 16) - 1);
                 return BA;
         };
 
@@ -785,7 +795,7 @@ class twolevel_predictor : public branch_predictor
 #define BAB 4 // Branch Address Bits
 #define Bindex 1<<(BHB+BAB) // VMT Branch index
 #define Cindex 1<<Components // VMT Components index
-#define Ctrbits 3 //Counter bits 3 bits is better
+#define Ctrbits 4 //Counter bits 3 bits is better
 #define CtrMax (1<<Ctrbits)-1
 #define CtrMin 0
 
