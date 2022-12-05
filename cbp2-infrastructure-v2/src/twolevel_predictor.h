@@ -16,16 +16,29 @@
 #define PATT_HIST_TBL_ENTRY_NUM_MAX ((1 << K_BITS) - 1)
 #define K_BITS_MASK     PATT_HIST_TBL_ENTRY_NUM_MAX
 
+#define STRONG_NOTTAKEN     0
+#define MAJOR_NOTTAKEN      1
+#define MINOR_NOTTAKEN      2
+#define WEAK_NOTTAKEN       3
+#define WEAK_TAKEN          4
+#define MINOR_TAKEN         5
+#define MAJOR_TAKEN         6
+#define STRONG_TAKEN        7
+
 enum pred {
     strong_nottaken,
+    medium_nottaken,
+    mediumrare_nottaken,
     weak_nottaken,
     weak_taken,
+    mediumrare_taken,
+    medium_taken,
     strong_taken,
 };
 
 class pattern_history_table {
     private:
-        enum pred two_bit_ctr[PATT_HIST_TBL_NUM][PATT_HIST_TBL_ENTRY_NUM];
+        unsigned int two_bit_ctr[PATT_HIST_TBL_NUM][PATT_HIST_TBL_ENTRY_NUM];
 
     public:
         pattern_history_table() {}
@@ -41,21 +54,21 @@ class pattern_history_table {
         {
             switch (two_bit_ctr[pht_idx][entry_idx])
             {
-                case strong_nottaken: // Strongly not taken
-                    two_bit_ctr[pht_idx][entry_idx] = weak_nottaken;
+                case STRONG_NOTTAKEN: // Strongly not taken lower bound
+                case MAJOR_NOTTAKEN:
+                case MINOR_NOTTAKEN:
+                case WEAK_NOTTAKEN: 
+                case WEAK_TAKEN:   
+                case MINOR_TAKEN:   
+                case MAJOR_TAKEN:   
+                    two_bit_ctr[pht_idx][entry_idx]++;
                     break;
-                case weak_nottaken: // Weakly not taken
-                    two_bit_ctr[pht_idx][entry_idx] = weak_taken;
-                    break;
-                case weak_taken: // Weakly taken
-                    two_bit_ctr[pht_idx][entry_idx] = strong_taken;
-                    break;
-                case strong_taken: // Strongly taken
-                    two_bit_ctr[pht_idx][entry_idx] = strong_taken;
+                case STRONG_TAKEN: // Strongly taken upper bound
+                    two_bit_ctr[pht_idx][entry_idx] = STRONG_TAKEN;
                     break;
                 default:
                     // The first time update taken
-                    two_bit_ctr[pht_idx][entry_idx] = weak_taken;
+                    two_bit_ctr[pht_idx][entry_idx] = WEAK_TAKEN;
                     break;
             }
         }
@@ -64,21 +77,21 @@ class pattern_history_table {
         {
             switch (two_bit_ctr[pht_idx][entry_idx])
             {
-                case strong_nottaken: // Strongly not taken
-                    two_bit_ctr[pht_idx][entry_idx] = strong_nottaken;
+                case STRONG_NOTTAKEN: // Strongly not taken lower bound
+                    two_bit_ctr[pht_idx][entry_idx] = STRONG_NOTTAKEN;
                     break;
-                case weak_nottaken: // Weakly not taken
-                    two_bit_ctr[pht_idx][entry_idx] = strong_nottaken;
+                case MAJOR_NOTTAKEN:
+                case MINOR_NOTTAKEN:
+                case WEAK_NOTTAKEN: 
+                case WEAK_TAKEN:   
+                case MINOR_TAKEN:   
+                case MAJOR_TAKEN:   
+                case STRONG_TAKEN: // Strongly taken upper bound
+                    two_bit_ctr[pht_idx][entry_idx]--;
                     break;
-                case weak_taken: // Weakly taken
-                    two_bit_ctr[pht_idx][entry_idx] = weak_nottaken;
-                    break;
-                case strong_taken: // Strongly taken
-                    two_bit_ctr[pht_idx][entry_idx] = weak_taken;
-                    break;
-                default: 
-                    // The first time update not taken
-                    two_bit_ctr[pht_idx][entry_idx] = weak_nottaken;
+                default:
+                    // The first time update taken
+                    two_bit_ctr[pht_idx][entry_idx] = WEAK_NOTTAKEN;
                     break;
             }
         }
