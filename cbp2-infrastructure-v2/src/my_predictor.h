@@ -10,13 +10,13 @@ Code has been largely inspired	by the tagged PPM predictor simulator from Pierre
 
 
 //a limit predictor for 256Kbits: no AHEAD pipelining, 13 components
-#define NHIST 12		//12 tagged components
+#define NHIST 18		//12 tagged components                               // 要改
 #define LOGB 14			// log of the number of entries in the base bimodal predictor
 #define HYSTSHIFT 2		// sharing an hysteris bit between 4 bimodal predictor entries
 #define LOGG (LOGB-3)		// base 2 logarithm of number of entries	on each tagged component
 #define TBITS 7			// minimum tag width (shortest history length table)
 #define MINHIST 4		// shortest history length
-#define MAXHIST 640		// longest history lngth
+#define MAXHIST 1280		// longest history lngth
 
 #define LOGL 8			//256 entries loop predictor
 #define WIDTHNBITERLOOP 14
@@ -75,7 +75,7 @@ public:
 };
 
 
-class my_predictor : public branch_predictor
+class TAGE : public branch_predictor
 {
 public:
 	branch_update u;
@@ -148,7 +148,7 @@ public:
 	int HitBank;			// longest matching bank
 	int AltBank;			// alternate matching bank	
 	//bool predloop;		// our predictor parameter{}	
-	my_predictor (void)
+	TAGE (void)
 	{
 		USE_ALT_ON_NA = 0;
 		Seed = 0;
@@ -193,16 +193,26 @@ public:
 		TB[10] = TBITS + 6;
 		TB[11] = TBITS + 7;
 		TB[12] = TBITS + 8;
+    	TB[13] = TBITS + 8;
+    	TB[14] = TBITS + 9;
+    	TB[15] = TBITS + 9;
+    	TB[16] = TBITS + 10;
+    	TB[17] = TBITS + 10;
+    	TB[18] = TBITS + 11;
 
 		// log2 of number entries in the tagged components
 		for (int i = 1; i <= 2; i++)
 			logg[i] = LOGG - 1;
-		for (int i = 3; i <= 6; i++)
+		for (int i = 3; i <= 9; i++)
 			logg[i] = LOGG;
-		for (int i = 7; i <= 10; i++)
+		for (int i = 10; i <= 12; i++)
 			logg[i] = LOGG - 1;
-		for (int i = 11; i <= 12; i++)
-			logg[i] = LOGG - 2;
+		for (int i = 13; i <= 14; i++)
+			logg[i] = LOGG - 1;
+ 		for (int i = 14; i <=16 ; i++)
+			logg[i] = LOGG;
+ 		for (int i = 17; i <=18 ; i++)
+			logg[i] = LOGG -2;
 
 		//initialisation of index and tag computation functions
 		for (int i = 1; i <= NHIST; i++)
@@ -396,6 +406,7 @@ public:
 
 			HitBank = 0;
 			AltBank = 0;
+			
 			//Look for the bank with longest matching history
 			for (int i = NHIST; i > 0; i--)
 			{
@@ -607,4 +618,266 @@ public:
 		}
 		//END UPDATE HISTORIES
 	}
+};
+
+////////////////////////////////////
+// Two level branch predictor
+////////////////////////////////////
+// Macro Pattern History Table (PHT)
+#define J_BITS 6    // Use the last j-bits in Branch address to index the PHT
+#define PATT_HIST_TBL_NUM   (1 << J_BITS)
+#define PATT_HIST_TBL_NUM_MAX ((1 << J_BITS) - 1)
+#define J_BITS_MASK     PATT_HIST_TBL_NUM_MAX
+
+// Macro Branch History Shift Register (BHSR)
+#define I_BITS  0
+#define K_BITS  8    // Use last k-bits in BHSR to index the PHT
+#define PATT_HIST_TBL_ENTRY_NUM     (1 << K_BITS)
+#define PATT_HIST_TBL_ENTRY_NUM_MAX ((1 << K_BITS) - 1)
+#define K_BITS_MASK     PATT_HIST_TBL_ENTRY_NUM_MAX
+
+#define STRONG_NOTTAKEN     0
+#define MAJOR_NOTTAKEN      1
+#define MINOR_NOTTAKEN      2
+#define WEAK_NOTTAKEN       3
+#define WEAK_TAKEN          4
+#define MINOR_TAKEN         5
+#define MAJOR_TAKEN         6
+#define STRONG_TAKEN        7
+
+enum pred {
+    strong_nottaken,
+    medium_nottaken,
+    mediumrare_nottaken,
+    weak_nottaken,
+    weak_taken,
+    mediumrare_taken,
+    medium_taken,
+    strong_taken,
+};
+
+class pattern_history_table {
+    private:
+        unsigned int two_bit_ctr[PATT_HIST_TBL_NUM][PATT_HIST_TBL_ENTRY_NUM];
+
+    public:
+        pattern_history_table() {}
+        
+        ~pattern_history_table() {}
+
+        bool get_prediction(unsigned long long pht_idx, unsigned long long entry_idx)
+        {
+            return two_bit_ctr[pht_idx][entry_idx] >= weak_taken;
+        }
+
+        void update_counter_taken(unsigned long long pht_idx, unsigned long long entry_idx)
+        {
+            switch (two_bit_ctr[pht_idx][entry_idx])
+            {
+                case STRONG_NOTTAKEN: // Strongly not taken lower bound
+                case MAJOR_NOTTAKEN:
+                case MINOR_NOTTAKEN:
+                case WEAK_NOTTAKEN: 
+                case WEAK_TAKEN:   
+                case MINOR_TAKEN:   
+                case MAJOR_TAKEN:   
+                    two_bit_ctr[pht_idx][entry_idx]++;
+                    break;
+                case STRONG_TAKEN: // Strongly taken upper bound
+                    two_bit_ctr[pht_idx][entry_idx] = STRONG_TAKEN;
+                    break;
+                default:
+                    // The first time update taken
+                    two_bit_ctr[pht_idx][entry_idx] = WEAK_TAKEN;
+                    break;
+            }
+        }
+
+        void update_counter_nottaken(unsigned long long pht_idx, unsigned long long entry_idx)
+        {
+            switch (two_bit_ctr[pht_idx][entry_idx])
+            {
+                case STRONG_NOTTAKEN: // Strongly not taken lower bound
+                    two_bit_ctr[pht_idx][entry_idx] = STRONG_NOTTAKEN;
+                    break;
+                case MAJOR_NOTTAKEN:
+                case MINOR_NOTTAKEN:
+                case WEAK_NOTTAKEN: 
+                case WEAK_TAKEN:   
+                case MINOR_TAKEN:   
+                case MAJOR_TAKEN:   
+                case STRONG_TAKEN: // Strongly taken upper bound
+                    two_bit_ctr[pht_idx][entry_idx]--;
+                    break;
+                default:
+                    // The first time update taken
+                    two_bit_ctr[pht_idx][entry_idx] = WEAK_NOTTAKEN;
+                    break;
+            }
+        }
+};
+
+class twolevel_predictor : public branch_predictor
+{
+    private:
+        class pattern_history_table pht_tbl;
+        unsigned long long br_hist_shift_reg;
+        unsigned int bhsr_k_idx;
+        unsigned int br_addr_j_idx;
+
+    public:
+    	branch_update u;
+	    branch_info bi;
+        unsigned int BH;
+        unsigned int BA;
+
+        twolevel_predictor()
+        {
+            br_hist_shift_reg = 0;
+        }
+
+        ~twolevel_predictor() {}
+
+        // PREDICTION
+	    branch_update *predict (branch_info & b)
+	    {
+            bi = b;
+            if (b.br_flags & BR_CONDITIONAL) 
+            {
+                br_addr_j_idx = bi.address & J_BITS_MASK;
+                bhsr_k_idx = br_hist_shift_reg & K_BITS_MASK;
+			    u.direction_prediction (pht_tbl.get_prediction(br_addr_j_idx, bhsr_k_idx));
+		    } 
+            else 
+            {
+			    u.direction_prediction (true);
+		    }
+		    u.target_prediction (0);
+		    return &u;
+        }
+
+        void update (branch_update * u, bool taken, unsigned int target)
+	    {
+            if (bi.br_flags & BR_CONDITIONAL) 
+            {
+                br_addr_j_idx = bi.address & J_BITS_MASK;
+                br_hist_shift_reg = (br_hist_shift_reg << 1) | taken;
+                bhsr_k_idx = br_hist_shift_reg & K_BITS_MASK;
+
+                if (taken)
+                {
+                    pht_tbl.update_counter_taken(br_addr_j_idx, bhsr_k_idx);
+                }
+                else
+                {
+                    pht_tbl.update_counter_nottaken(br_addr_j_idx, bhsr_k_idx);
+                }
+		    }
+        }
+        unsigned int Get_Hist () {
+                BH = bhsr_k_idx;
+                return BH;
+            };
+
+        unsigned int Get_Branch (){
+                BA = bi.address & ((1 << 16) - 1);
+                return BA;
+        };
+
+};
+
+////////////////////////////////////
+// Selector
+////////////////////////////////////
+
+#define Components 2 //Branch Predictor Components
+#define BHB 6 // Branch History Bits
+#define BAB 4 // Branch Address Bits
+#define Bindex 1<<(BHB+BAB) // VMT Branch index
+#define Cindex 1<<Components // VMT Components index
+#define Ctrbits 4 //Counter bits 3 bits is better
+#define CtrMax (1<<Ctrbits)-1
+#define CtrMin 0
+
+int VMT [Bindex][Cindex] = {1<<(Ctrbits-1)};
+
+class Vector_Mapping_Table{
+
+    public:
+
+    Vector_Mapping_Table(){}
+
+    ~Vector_Mapping_Table(){}
+
+    bool selection(unsigned long long bindex, unsigned long long cindex){
+        return VMT[bindex][cindex]>>(Ctrbits-1);
+    }
+
+    void update_VMT(unsigned long long bindex, unsigned long long cindex, bool taken){
+            int pred = VMT[bindex][cindex];
+            
+            if (taken){
+                if(pred == CtrMax){
+                    VMT[bindex][cindex] = CtrMax;
+                }
+                else{
+                    VMT[bindex][cindex]++;
+                }
+            }
+            else{
+                if(pred == CtrMin){
+                    VMT[bindex][cindex] = CtrMin;
+                }
+                else{
+                    VMT[bindex][cindex]--;
+                }
+            }
+    }
+};
+
+
+class selector{
+    private:
+        class Vector_Mapping_Table vmt;
+        TAGE *tage_bp;
+        twolevel_predictor *twolevel_bp;
+        unsigned long long bindex,BHR;
+        unsigned int cindex,PC;
+
+    public:
+
+        branch_update u;
+
+        selector()
+        {
+            tage_bp = new TAGE();
+	        twolevel_bp = new twolevel_predictor();
+        }
+
+        ~selector()
+        {
+            delete tage_bp;
+            delete twolevel_bp;
+        }
+
+        branch_update *predict(branch_info &b)
+        {
+            bool bx = tage_bp->predict(b)->direction_prediction();
+            bool cx = twolevel_bp->predict(b)->direction_prediction();
+            BHR = ((twolevel_bp->Get_Hist())&((1<<BHB)-1))<<BAB;
+            PC = (twolevel_bp->Get_Branch())&((1<<BAB)-1);
+            bindex = BHR + PC;
+            cindex = (bx<<(Components-1))+cx;
+            u.direction_prediction(vmt.selection(bindex,cindex));
+            u.target_prediction (0);
+            return &u;
+        }
+
+        void update (branch_update * u, bool taken, unsigned int target)
+        {
+            // Here we will update both predictor
+            tage_bp->update(u, taken, target);
+            twolevel_bp->update(u, taken, target);
+            vmt.update_VMT(bindex,cindex,taken);
+        }
 };

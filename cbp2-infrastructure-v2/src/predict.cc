@@ -28,8 +28,7 @@ int main (int argc, char *argv[]) {
 	init_trace (argv[1]);
 
 	// initialize competitor's branch prediction code
-
-	branch_predictor *p = new my_predictor ();
+	selector *sel = new selector();
 
 	// some statistics to keep, currently just for conditional branches
 
@@ -51,7 +50,7 @@ int main (int argc, char *argv[]) {
 
 		// send this trace to the competitor's code for prediction
 
-		branch_update *u = p->predict (t->bi);
+		branch_update *u = sel->predict(t->bi);
 
 		// collect statistics for a conditional branch trace
 
@@ -68,7 +67,7 @@ int main (int argc, char *argv[]) {
 
 		// update competitor's state
 
-		p->update (u, t->taken, t->target);
+		sel->update (u, t->taken, t->target);
 	}
 
 	// done reading traces
@@ -79,6 +78,6 @@ int main (int argc, char *argv[]) {
 	// each trace represents exactly 100 million instructions.
 
 	printf ("%0.3f MPKI\n", 1000.0 * (dmiss / 1e8));
-	delete p;
+	delete sel;
 	exit (0);
 }
