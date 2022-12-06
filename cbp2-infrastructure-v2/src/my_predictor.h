@@ -788,6 +788,7 @@ class twolevel_predictor : public branch_predictor
 #define Ctrbits 3 //Counter bits 3 bits is better
 #define CtrMax (1<<Ctrbits)-1
 #define CtrMin 0
+#define EnableHybrid 1
 
 int VMT [Bindex][Cindex] = {1<<(Ctrbits-1)};
 
@@ -858,7 +859,14 @@ class selector{
             PC = (twolevel_bp->Get_Branch())&((1<<BAB)-1);
             bindex = BHR + PC;
             cindex = (bx<<(Components-1))+cx;
+#if EnableHybrid
             u.direction_prediction(vmt.selection(bindex,cindex));
+#else
+			// Use tage only
+			// u.direction_prediction(bx);
+			// Use two level only
+			u.direction_prediction(cx);
+#endif
             u.target_prediction (0);
             return &u;
         }
