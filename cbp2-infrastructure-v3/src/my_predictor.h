@@ -636,25 +636,14 @@ public:
 #define PATT_HIST_TBL_ENTRY_NUM_MAX ((1 << K_BITS) - 1)
 #define K_BITS_MASK     PATT_HIST_TBL_ENTRY_NUM_MAX
 
-#define STRONG_NOTTAKEN     0
-#define MAJOR_NOTTAKEN      1
-#define MINOR_NOTTAKEN      2
-#define WEAK_NOTTAKEN       3
-#define WEAK_TAKEN          4
-#define MINOR_TAKEN         5
-#define MAJOR_TAKEN         6
-#define STRONG_TAKEN        7
+#define SAT_CNT_BITS	4
+#define SAT_CNT_MIN		0
+#define SAT_CNT_MAX		((1 << SAT_CNT_BITS) - 1)
 
-enum pred {
-    strong_nottaken,
-    medium_nottaken,
-    mediumrare_nottaken,
-    weak_nottaken,
-    weak_taken,
-    mediumrare_taken,
-    medium_taken,
-    strong_taken,
-};
+#define STRONG_NOTTAKEN     SAT_CNT_MIN
+#define WEAK_NOTTAKEN		((SAT_CNT_MAX + 1) / 2 - 1)
+#define WEAK_TAKEN			((SAT_CNT_MAX + 1) / 2)
+#define STRONG_TAKEN        SAT_CNT_MAX
 
 class pattern_history_table {
     private:
@@ -667,53 +656,41 @@ class pattern_history_table {
 
         bool get_prediction(unsigned long long pht_idx, unsigned long long entry_idx)
         {
-            return two_bit_ctr[pht_idx][entry_idx] >= weak_taken;
+            return two_bit_ctr[pht_idx][entry_idx] >= WEAK_TAKEN;
         }
 
         void update_counter_taken(unsigned long long pht_idx, unsigned long long entry_idx)
         {
-            switch (two_bit_ctr[pht_idx][entry_idx])
-            {
-                case STRONG_NOTTAKEN: // Strongly not taken lower bound
-                case MAJOR_NOTTAKEN:
-                case MINOR_NOTTAKEN:
-                case WEAK_NOTTAKEN: 
-                case WEAK_TAKEN:   
-                case MINOR_TAKEN:   
-                case MAJOR_TAKEN:   
-                    two_bit_ctr[pht_idx][entry_idx]++;
-                    break;
-                case STRONG_TAKEN: // Strongly taken upper bound
-                    two_bit_ctr[pht_idx][entry_idx] = STRONG_TAKEN;
-                    break;
-                default:
-                    // The first time update taken
-                    two_bit_ctr[pht_idx][entry_idx] = WEAK_TAKEN;
-                    break;
-            }
+			if (two_bit_ctr[pht_idx][entry_idx] == STRONG_TAKEN)
+			{
+				two_bit_ctr[pht_idx][entry_idx] = STRONG_TAKEN;
+			}
+			else if (two_bit_ctr[pht_idx][entry_idx] < STRONG_TAKEN)
+			{
+				two_bit_ctr[pht_idx][entry_idx]++;
+			}
+			else
+			{
+				// First time uninitialized ctr
+				two_bit_ctr[pht_idx][entry_idx] = WEAK_NOTTAKEN;
+			}
         }
 
         void update_counter_nottaken(unsigned long long pht_idx, unsigned long long entry_idx)
         {
-            switch (two_bit_ctr[pht_idx][entry_idx])
-            {
-                case STRONG_NOTTAKEN: // Strongly not taken lower bound
-                    two_bit_ctr[pht_idx][entry_idx] = STRONG_NOTTAKEN;
-                    break;
-                case MAJOR_NOTTAKEN:
-                case MINOR_NOTTAKEN:
-                case WEAK_NOTTAKEN: 
-                case WEAK_TAKEN:   
-                case MINOR_TAKEN:   
-                case MAJOR_TAKEN:   
-                case STRONG_TAKEN: // Strongly taken upper bound
-                    two_bit_ctr[pht_idx][entry_idx]--;
-                    break;
-                default:
-                    // The first time update taken
-                    two_bit_ctr[pht_idx][entry_idx] = WEAK_NOTTAKEN;
-                    break;
-            }
+			if (two_bit_ctr[pht_idx][entry_idx] == STRONG_NOTTAKEN)
+			{
+				two_bit_ctr[pht_idx][entry_idx] = STRONG_NOTTAKEN;
+			}
+			else if (two_bit_ctr[pht_idx][entry_idx] > STRONG_NOTTAKEN)
+			{
+				two_bit_ctr[pht_idx][entry_idx]--;
+			}
+			else
+			{
+				// First time uninitialized ctr
+				two_bit_ctr[pht_idx][entry_idx] = WEAK_NOTTAKEN;
+			}
         }
 };
 
