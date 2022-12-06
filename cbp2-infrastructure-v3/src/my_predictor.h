@@ -791,8 +791,8 @@ class twolevel_predictor : public branch_predictor
 ////////////////////////////////////
 
 #define Components 2 //Branch Predictor Components
-#define BHB 6 // Branch History Bits
-#define BAB 4 // Branch Address Bits
+#define BHB 1 // Branch History Bits
+#define BAB 7 // Branch Address Bits
 #define Bindex 1<<(BHB+BAB) // VMT Branch index
 #define Cindex 1<<Components // VMT Components index
 #define Ctrbits 4 //Counter bits 3 bits is better
